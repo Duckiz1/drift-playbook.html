@@ -1,0 +1,1385 @@
+<meta charset="utf-8">
+<title>Drift Playbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: tactics-board app. Tool rail | field (2D or 3D) + timeline | inspector. Stacks to one column on phones.
+   Single committed look: dark orbital board, green offense vs purple defense, amber UI accent (the arena's rail colour). */
+:root{
+  --bg:#0a0f1f;
+  --panel:#111933;
+  --panel2:#17213f;
+  --line:#26335e;
+  --field:#121b38;
+  --fieldline:#3b4f8f;
+  --fg:#e7ecff;
+  --muted:#8f9ac6;
+  --accent:#ffb547;
+  --off:#3fe86c;
+  --def:#b47dff;
+  --ball:#ffffff;
+  --warn:#ff6b6b;
+  --display:"Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+  padding-block:14px 24px;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;letter-spacing:.16em;text-transform:uppercase;font-size:13px;color:var(--accent);white-space:nowrap}
+.brand svg{width:22px;height:22px}
+.playmeta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1 1 380px;min-width:0}
+.playmeta .name{flex:1 1 200px}
+.pbnav{display:flex;align-items:center;gap:4px}
+#pbCount{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
+.savechip{font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.savechip.ok{color:var(--off);border-color:var(--off)}
+.savechip.busy{color:var(--accent);border-color:var(--accent)}
+.savechip.warn{color:var(--warn);border-color:var(--warn)}
+.pblist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:240px;overflow:auto}
+.pblist button{width:100%;text-align:left;display:flex;justify-content:space-between;align-items:baseline;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;cursor:pointer}
+.pblist button:hover{border-color:var(--fieldline)}
+.pblist button[aria-current="true"]{border-color:var(--accent);background:var(--panel2)}
+.pblist .nm{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pblist .sub{font-size:11px;color:var(--muted);white-space:nowrap;font-family:var(--mono)}
+.name{flex:1 1 auto;min-width:0;background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 8px;font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:.02em}
+.name:hover{border-color:var(--line)}
+.name:focus{border-color:var(--accent);outline:none;background:var(--panel)}
+select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:220px}
+.hbtns{display:flex;flex-wrap:wrap;gap:6px}
+
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;font-size:13px;white-space:nowrap}
+.btn:hover:not(:disabled){background:var(--panel2);border-color:var(--fieldline)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:#1d1404;border-color:var(--accent);font-weight:600;min-width:72px}
+.btn.primary:hover{background:#ffc66e}
+.btn.danger{border-color:var(--warn);color:var(--warn)}
+.btn.icon{padding:7px 9px;display:inline-flex;align-items:center}
+.btn.icon svg{width:16px;height:16px}
+
+.app{display:grid;grid-template-columns:auto minmax(0,1fr) 310px;gap:14px;margin-top:14px;align-items:start}
+.tools{display:flex;flex-direction:column;gap:6px;position:sticky;top:env(safe-area-inset-top, 0px)}
+.tool{display:flex;flex-direction:column;align-items:center;gap:3px;width:74px;padding:10px 4px 7px;background:var(--panel);border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted)}
+.tool svg{width:22px;height:22px}
+.tool kbd{font-family:var(--mono);font-size:10px;opacity:.6}
+.tool:hover{color:var(--fg)}
+.tool[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.tool:disabled{opacity:.4;cursor:default}
+.tools .sep{height:1px;background:var(--line);margin:4px 6px}
+
+.stage{min-width:0}
+#wrap{width:100%;display:flex;justify-content:center;position:relative}
+#cv{display:block;touch-action:none;border-radius:14px;background:var(--panel);cursor:crosshair}
+#v3{border-radius:14px;overflow:hidden;background:var(--panel);touch-action:none}
+#v3 canvas{display:block}
+#cv[hidden],#v3[hidden],#pbImport[hidden]{display:none}
+.hint{margin:8px 2px 0;color:var(--muted);font-size:13px;line-height:1.45;min-height:1.45em}
+.hint b{color:var(--fg);font-weight:600}
+
+.transport{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+#track{position:relative;flex:1 1 220px;min-width:0;height:46px;background:var(--panel);border:1px solid var(--line);border-radius:10px;cursor:ew-resize;touch-action:none;overflow:hidden}
+#ticks,#marks{position:absolute;inset:0 10px}
+.tick{position:absolute;bottom:0;width:1px;height:8px;background:var(--line)}
+.tick span{position:absolute;bottom:9px;left:3px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.mk{position:absolute;top:5px;transform:translateX(-50%);min-width:20px;height:18px;padding:0 4px;border-radius:9px;border:1px solid var(--fg);background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:10px;font-weight:700;cursor:pointer;line-height:16px}
+.mk.shot{border-color:var(--accent);color:var(--accent)}
+.mk.turnover{border-color:var(--def);color:var(--def)}
+.mk.bad{border-color:var(--warn);color:var(--warn)}
+.mk.sel{background:var(--fg);color:var(--bg)}
+#headwrap{position:absolute;inset:0 10px;pointer-events:none}
+#head{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--accent);box-shadow:0 0 8px var(--accent)}
+#tlabel{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:96px;text-align:right}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:12px;height:12px}
+.lg-o{background:var(--off);border-radius:50%}
+.lg-d{background:var(--def);clip-path:polygon(25% 5%,75% 5%,100% 50%,75% 95%,25% 95%,0 50%)}
+.lg-dot{width:6px!important;height:6px!important;border-radius:50%;background:var(--muted)}
+.lg-pass{width:18px!important;height:0!important;border-top:2px dotted var(--fg)}
+
+.panel{display:flex;flex-direction:column;gap:10px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+.card h3{margin:0;font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:8px}
+.chip{font-family:var(--body);letter-spacing:.04em;text-transform:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;color:#0a0f1f}
+.chip.O{background:var(--off)}.chip.D{background:var(--def)}
+.count{font-family:var(--mono);font-size:11px;color:var(--fg);background:var(--panel2);border-radius:99px;padding:1px 7px;letter-spacing:0}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+label.f input,label.f textarea{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:14px;color:var(--fg);min-width:0;width:100%}
+label.f textarea{resize:vertical;min-height:64px;line-height:1.45;font-size:13px}
+label.f input:focus,label.f textarea:focus{border-color:var(--accent);outline:none}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35;cursor:pointer}
+.check input{margin-top:2px;accent-color:var(--accent)}
+.meta{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45}
+.meta.mono{font-family:var(--mono);font-size:11.5px}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+input[type=range]{accent-color:var(--accent);width:100%}
+input[type=file]{font-size:12px;color:var(--muted);max-width:100%}
+
+.pz{display:flex;flex-direction:column;gap:5px}
+.pzh{font-size:12px;color:var(--muted)}
+.pzr{display:grid;grid-template-columns:minmax(0,1fr) 60px auto 20px;align-items:center;gap:6px;font-size:12.5px;padding:5px 6px 5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.pzr input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 5px;font-family:var(--mono);font-size:12px}
+.pzr .x{background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:0}
+.pzr .x:hover{color:var(--warn)}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.plist li{display:grid;grid-template-columns:22px minmax(0,1fr) 64px 24px;align-items:center;gap:8px;padding:6px 6px 6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
+.plist li.sel{border-color:var(--fg)}
+.plist li.bad{border-color:var(--warn)}
+.plist .n{font-family:var(--mono);font-weight:700;font-size:12px;color:var(--muted)}
+.plist .pmain{font-size:13px;min-width:0;line-height:1.3}
+.plist .why{color:var(--warn);font-size:11.5px;margin-top:2px}
+.kind{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-left:4px}
+.kind.shot{color:var(--accent)}.kind.turnover{color:var(--def)}
+.plist input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:3px 5px;font-family:var(--mono);font-size:12px}
+.plist .x{background:none;border:none;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;padding:0}
+.plist .x:hover{color:var(--warn)}
+
+.overlay{position:fixed;inset:0;background:rgba(4,7,16,.72);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.overlay[hidden]{display:none}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:560px;width:100%;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto}
+.sheet h2{margin:0;font-family:var(--display);font-size:20px;font-weight:600}
+.sheet textarea{width:100%;min-height:96px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;font-family:var(--mono);font-size:11px;color:var(--fg);resize:vertical}
+
+#toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));transform:translate(-50%,20px);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:9px;font-size:13px;font-weight:500;opacity:0;transition:opacity .18s,transform .18s;pointer-events:none;max-width:calc(100% - 32px);z-index:30}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:980px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .tools{flex-direction:row;flex-wrap:wrap;position:static}
+  .tool{flex:1 1 64px;width:auto;flex-direction:row;justify-content:center;gap:6px;padding:9px 6px}
+  .tool kbd{display:none}
+  .tools .sep{display:none}
+}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+<div class="top">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><ellipse cx="12" cy="12" rx="10" ry="4.2" transform="rotate(-25 12 12)"/></svg>
+    <span>Drift Playbook</span>
+  </div>
+  <div class="playmeta">
+    <label class="sr" for="playName">Play name</label>
+    <input id="playName" class="name" maxlength="60" spellcheck="false">
+    <div class="pbnav">
+      <button class="btn icon" id="prevPlay" aria-label="Previous play" title="Previous play ([)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <label class="sr" for="playSel">Saved plays</label>
+      <select id="playSel"></select>
+      <button class="btn icon" id="nextPlay" aria-label="Next play" title="Next play (])">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <span id="pbCount">1 / 1</span>
+    </div>
+    <span id="saveState" class="savechip">Saved in this browser only</span>
+  </div>
+  <div class="hbtns">
+    <button class="btn" id="newBtn">New play</button>
+    <button class="btn" id="dupBtn">Duplicate</button>
+    <button class="btn" id="delBtn">Delete</button>
+    <button class="btn" id="shareBtn">Share / import</button>
+  </div>
+</div>
+
+<main class="app">
+  <nav class="tools" aria-label="Tools">
+    <button class="tool" data-tool="move" aria-pressed="true" title="Move players (1)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg>
+      Move<kbd>1</kbd></button>
+    <button class="tool" data-tool="route" aria-pressed="false" title="Draw routes (2)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="18" r="2.2"/><path d="M7 16.5c3-2 2-7 6-8.5 2.5-1 4 0 6-2" stroke-dasharray="2.2 2.2"/><path d="M15.5 5.5H19.5V9.5"/></svg>
+      Route<kbd>2</kbd></button>
+    <button class="tool" data-tool="pass" aria-pressed="false" title="Add passes (3)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="17" r="2.2"/><circle cx="19" cy="7" r="2.2"/><path d="M7 15.6 16.8 8.4" stroke-dasharray="1 2.4"/></svg>
+      Pass<kbd>3</kbd></button>
+    <div class="sep"></div>
+    <button class="tool" id="view3dBtn" aria-pressed="false" title="Toggle 3D view (4)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>
+      3D view<kbd>4</kbd></button>
+    <button class="tool" id="undoBtn" title="Undo (Ctrl+Z)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -6)"/></svg>
+      Undo<kbd>Ctrl Z</kbd></button>
+  </nav>
+
+  <section class="stage" aria-label="Field">
+    <div id="wrap">
+      <canvas id="cv" aria-label="Arena with player positions, routes and passes"></canvas>
+      <div id="v3" hidden aria-label="3D view of the play"></div>
+    </div>
+    <p id="hint" class="hint"></p>
+    <div class="transport">
+      <button class="btn icon" id="rewBtn" aria-label="Back to start" title="Back to start">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="5" width="2.5" height="14" rx="1"/><path d="M20 5v14L8 12z"/></svg>
+      </button>
+      <button class="btn primary" id="playBtn">Play</button>
+      <div id="track" role="slider" aria-label="Play timeline" tabindex="0">
+        <div id="ticks"></div>
+        <div id="headwrap"><div id="head"></div></div>
+        <div id="marks"></div>
+      </div>
+      <span id="tlabel">0.00s / 6.0s</span>
+      <label class="sr" for="rate">Playback speed</label>
+      <select id="rate">
+        <option value="0.25">0.25×</option>
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+    <div class="legend">
+      <span><i class="lg-o"></i>Offense</span>
+      <span><i class="lg-d"></i>Defense</span>
+      <span><i class="lg-dot"></i>Route dot = each second on the clock</span>
+      <span><i class="lg-pass"></i>Pass, numbered in order</span>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <section class="card" id="pbCard">
+      <h3>Playbook <span class="count" id="pbN">0</span></h3>
+      <ol class="pblist" id="pbList"></ol>
+      <div id="pbImport" class="panel" hidden>
+        <p class="meta" id="pbImportMsg"></p>
+        <div class="btns"><button class="btn primary" id="pbImportBtn">Copy them to the page</button><button class="btn" id="pbImportHide">Not now</button></div>
+      </div>
+      <p class="meta" id="pbNote"></p>
+    </section>
+    <div id="dyn" class="panel"></div>
+    <section class="card">
+      <h3>Play</h3>
+      <label class="f">Notes
+        <textarea id="notes" placeholder="What the play is for, reads, counters…"></textarea>
+      </label>
+      <label class="f">Ball speed (m/s)
+        <input id="ballSpeed" type="number" min="5" max="120" step="1">
+      </label>
+      <label class="check"><input type="checkbox" id="moveRoute"> Dragging a player moves their whole route too</label>
+    </section>
+    <section class="card">
+      <h3>Arena</h3>
+      <p class="meta">4v4 arena, about 84 × 67 m, traced from the minimap outline in the OD overlay pack. Green attacks the purple goal. In 3D, the platform and wall heights are estimates.</p>
+      <label class="check"><input type="checkbox" id="showLines" checked> Show 5 m grid</label>
+      <label class="sr" for="arenaFile">Overlay image</label>
+      <p class="meta">Optional: lay a top-down screenshot over the 2D field.</p>
+      <input type="file" id="arenaFile" accept="image/*">
+      <label class="f">Overlay opacity
+        <input type="range" id="arenaOpacity" min="0.1" max="1" step="0.05" value="0.5">
+      </label>
+      <div class="btns"><button class="btn" id="arenaClear" disabled>Remove overlay</button></div>
+    </section>
+  </aside>
+</main>
+
+<div id="share" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <h2 id="shareTitle">Share or import a play</h2>
+    <p class="meta">Copy this code and send it to a teammate. They paste it below to add the play to their playbook.</p>
+    <label class="sr" for="exportCode">Play code</label>
+    <textarea id="exportCode" readonly></textarea>
+    <div class="btns"><button class="btn primary" id="copyBtn">Copy code</button></div>
+    <label class="f">Paste a play code
+      <textarea id="importCode" placeholder='{"name":"…","players":[…]}'></textarea>
+    </label>
+    <div class="btns">
+      <button class="btn" id="importBtn">Import play</button>
+      <button class="btn" id="closeShare">Close</button>
+    </div>
+    <p class="meta" id="importMsg"></p>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+/* Field units are metres. The 4v4 arena is 8400 x 6715 game units (cm) per the overlay minimap. */
+const W = 84, H = 67.15, CY = H / 2, VX0 = -2, VY0 = -4, VW = 88, VH = H + 6, PR = 1.9;
+const GOAL_W = 4.5, GOAL_D = 1.65;
+const GOALS = [{ x: 0.8, y: CY, team: 'O' }, { x: W - 0.8, y: CY, team: 'D' }];
+const KEY = 'driftPlaybook.v3', AKEY = 'driftPlaybook.arena';
+const C = {};
+const readColors = () => { const cs = getComputedStyle(document.documentElement);
+  for (const k of ['bg','panel','field','fieldline','fg','muted','off','def','warn','ball','accent']) C[k] = cs.getPropertyValue('--' + k).trim(); };
+
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+/* ---------- arena geometry (FullMap.svg, 2468 x 1798, from the OD overlay minimap) ---------- */
+const SVG_W = 2468, SVG_H = 1798;
+const OUTER = {
+  tl: 'M5 898.751V685.993C57.6174 358.85 372.009 276.023 430.515 265.054C503.721 251.329 554.051 287.932 659.286 130.079C696.18 74.7376 772.203 10.1609 843.064 6.58805C913.925 3.01522 1233.79 6.58805 1233.79 6.58805',
+  bl: 'M5 898.751V1111.51C57.6174 1438.65 372.009 1521.48 430.515 1532.45C503.721 1546.17 554.051 1509.57 659.286 1667.42C696.18 1722.77 772.203 1787.34 843.064 1790.91C913.925 1794.49 1233.79 1790.91 1233.79 1790.91',
+  tr: 'M2462.59 898.751V685.993C2409.97 358.85 2095.58 276.023 2037.07 265.054C1963.86 251.329 1913.53 287.932 1808.3 130.079C1771.41 74.7376 1695.38 10.1609 1624.52 6.58805C1553.66 3.01522 1233.79 6.58805 1233.79 6.58805',
+  br: 'M2462.59 898.751V1111.51C2409.97 1438.65 2095.58 1521.48 2037.07 1532.45C1963.86 1546.17 1913.53 1509.57 1808.3 1667.42C1771.41 1722.77 1695.38 1787.34 1624.52 1790.91C1553.66 1794.49 1233.79 1790.91 1233.79 1790.91',
+};
+const P = {
+  6:'M475.711 606.925L364.748 557.879C419.847 511.406 496.466 423.262 527.888 384.998L542.15 389.868L565.804 513.702C536.585 524.833 493.567 580.489 475.711 606.925Z',
+  7:'M593.557 716.423L530.884 683.857C554.657 587.79 634.56 575.795 692.944 579.708L717.061 602.904L718.29 657.283H657.306C621.668 660.232 610.711 691.487 609.687 706.746L593.557 716.423Z',
+  8:'M522.636 898.751C523.44 874.807 530.892 815.715 554.264 770.899L589.913 767.951L615.644 784.033L619.396 800.651C609.032 815.036 588.626 854.794 589.913 898.751',
+  9:'M820.085 898.752V826.732L844.496 812.841C850.88 820.393 880.749 840.677 949.154 861.393V898.752',
+  10:'M937.481 430.098L855.452 529.851L861.255 540.674L991.122 516.52L1010.73 454.252L937.481 430.098Z',
+  11:'M908.699 293.599L863.319 256.087L855.452 222.649C900.763 142.509 1006.68 127.065 1053.97 129.361L1057.06 200.873L1046.67 211.129C966.864 213.152 921.437 266.952 908.699 293.599Z',
+  12:'M1233.78 515.897C1183.23 523.385 1176.78 648.408 1178.96 710.19C1189.13 704.339 1214.79 693.379 1233.81 696.016',
+  13:'M11.0886 668.961L30.541 675.602L89.6103 639.055C89.8074 604.008 115.457 515.051 216.477 439.59L183.068 421.849C169.05 431.472 132.057 464.04 96.2304 517.325C92.4417 522.174 78.8174 530.418 54.6302 524.599',
+  14:'M995.903 771.961L994.614 684.602C1030.69 678.211 1076.99 657.372 1095.63 647.751L1097.18 778.661C1094.29 777.425 1028.46 773.679 995.903 771.961Z',
+  15:'M428.083 269.385V319.062C473.441 314.454 567.006 306.275 578.41 310.422L660.486 235.259L665.669 210.636L635.863 165.279',
+  16:'M475.706 1190.58L364.743 1239.62C419.842 1286.1 496.461 1374.24 527.883 1412.5L542.145 1407.63L565.799 1283.8C536.58 1272.67 493.562 1217.01 475.706 1190.58Z',
+  17:'M593.552 1081.08L530.879 1113.65C554.652 1209.71 634.555 1221.71 692.939 1217.79L717.056 1194.6L718.285 1140.22H657.301C621.663 1137.27 610.706 1106.02 609.682 1090.76L593.552 1081.08Z',
+  18:'M522.631 898.751C523.436 922.696 530.887 981.788 554.259 1026.6L589.908 1029.55L615.639 1013.47L619.392 996.852C609.028 982.467 588.621 942.709 589.908 898.751',
+  19:'M820.08 898.751V970.771L844.491 984.662C850.875 977.11 880.744 956.825 949.149 936.11V898.751',
+  20:'M937.476 1367.4L855.447 1267.65L861.25 1256.83L991.117 1280.98L1010.72 1343.25L937.476 1367.4Z',
+  21:'M908.694 1503.9L863.315 1541.42L855.447 1574.85C900.758 1654.99 1006.67 1670.44 1053.97 1668.14L1057.06 1596.63L1046.66 1586.37C966.859 1584.35 921.433 1530.55 908.694 1503.9Z',
+  22:'M1233.78 1281.61C1183.23 1274.12 1176.77 1149.1 1178.96 1087.31C1189.12 1093.16 1214.79 1104.12 1233.81 1101.49',
+  23:'M11.0837 1128.54L30.5361 1121.9L89.6054 1158.45C89.8026 1193.49 115.452 1282.45 216.472 1357.91L183.063 1375.65C169.045 1366.03 132.052 1333.46 96.2255 1280.18C92.4368 1275.33 78.8126 1267.08 54.6253 1272.9',
+  24:'M428.079 1528.12V1478.44C473.436 1483.05 567.001 1491.23 578.406 1487.08L660.481 1562.24L665.664 1586.87L635.858 1632.22',
+  25:'M1991.9 606.925L2102.86 557.878C2047.76 511.406 1971.14 423.261 1939.72 384.998L1925.46 389.868L1901.8 513.702C1931.02 524.833 1974.04 580.489 1991.9 606.925Z',
+  26:'M1874.05 716.423L1936.72 683.857C1912.95 587.79 1833.05 575.794 1774.66 579.708L1750.55 602.904L1749.32 657.282H1810.3C1845.94 660.232 1856.9 691.487 1857.92 706.745L1874.05 716.423Z',
+  27:'M1944.97 898.751C1944.17 874.807 1936.72 815.715 1913.34 770.899L1877.7 767.951L1851.96 784.033L1848.21 800.651C1858.58 815.036 1878.98 854.794 1877.7 898.751',
+  28:'M1647.52 898.751V826.732L1623.11 812.84C1616.73 820.393 1586.86 840.677 1518.45 861.393V898.751',
+  29:'M1530.13 430.098L1612.16 529.851L1606.35 540.673L1476.49 516.519L1456.88 454.252L1530.13 430.098Z',
+  30:'M1558.91 293.599L1604.29 256.087L1612.16 222.649C1566.84 142.509 1460.93 127.065 1413.64 129.361L1410.55 200.873L1420.94 211.129C1500.74 213.152 1546.17 266.952 1558.91 293.599Z',
+  31:'M1233.83 515.897C1284.38 523.385 1290.83 648.408 1288.65 710.19C1278.48 704.339 1252.81 693.379 1233.79 696.016',
+  32:'M2456.52 668.961L2437.07 675.602L2378 639.054C2377.8 604.008 2352.15 515.051 2251.13 439.59L2284.54 421.849C2298.56 431.472 2335.55 464.04 2371.38 517.324C2375.17 522.174 2388.79 530.418 2412.98 524.599',
+  33:'M2039.52 269.385V319.062C1994.17 314.454 1900.6 306.275 1889.2 310.422L1807.12 235.259L1801.94 210.636L1831.74 165.279',
+  34:'M1991.9 1190.58L2102.86 1239.62C2047.76 1286.1 1971.14 1374.24 1939.72 1412.5L1925.46 1407.63L1901.8 1283.8C1931.02 1272.67 1974.04 1217.01 1991.9 1190.58Z',
+  35:'M1874.05 1081.08L1936.73 1113.65C1912.95 1209.71 1833.05 1221.71 1774.66 1217.79L1750.55 1194.6L1749.32 1140.22H1810.3C1845.94 1137.27 1856.9 1106.02 1857.92 1090.76L1874.05 1081.08Z',
+  36:'M1944.97 898.751C1944.17 922.696 1936.72 981.788 1913.34 1026.6L1877.7 1029.55L1851.96 1013.47L1848.21 996.852C1858.58 982.467 1878.98 942.709 1877.7 898.751',
+  37:'M1647.52 898.751V970.771L1623.11 984.662C1616.73 977.11 1586.86 956.826 1518.45 936.11V898.751',
+  38:'M1530.13 1367.4L1612.16 1267.65L1606.35 1256.83L1476.49 1280.98L1456.88 1343.25L1530.13 1367.4Z',
+  39:'M1558.91 1503.9L1604.29 1541.42L1612.16 1574.85C1566.85 1654.99 1460.93 1670.44 1413.64 1668.14L1410.55 1596.63L1420.94 1586.37C1500.74 1584.35 1546.17 1530.55 1558.91 1503.9Z',
+  40:'M1233.83 1281.61C1284.38 1274.12 1290.83 1149.1 1288.65 1087.31C1278.48 1093.16 1252.82 1104.12 1233.79 1101.49',
+  41:'M2456.52 1128.54L2437.07 1121.9L2378 1158.45C2377.8 1193.49 2352.15 1282.45 2251.13 1357.91L2284.54 1375.65C2298.56 1366.03 2335.55 1333.46 2371.38 1280.18C2375.17 1275.33 2388.79 1267.08 2412.98 1272.9',
+  42:'M1471.71 1025.54L1472.99 1112.9C1436.92 1119.29 1390.62 1140.13 1371.98 1149.75L1370.43 1018.84C1373.32 1020.08 1439.15 1023.82 1471.71 1025.54Z',
+  43:'M2039.53 1528.12V1478.44C1994.17 1483.05 1900.6 1491.23 1889.2 1487.08L1807.12 1562.24L1801.94 1586.87L1831.75 1632.22',
+};
+/* Half-shapes that meet on the centre lines are joined into single pieces. Heights (m) are estimates for the 3D view. */
+const PIECES = [
+  [6],[7],[8,18],[9,19],[10],[11],[13],[14],[15],[16],[17],[20],[21],[23],[24],
+  [25],[26],[27,36],[28,37],[29],[30],[32],[33],[34],[35],[38],[39],[41],[42],[43],
+  [12,31,'tall'],[22,40,'tall'],
+];
+function sampleD(d, step = 7) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
+  svg.style.position = 'absolute';
+  const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); svg.appendChild(p); document.body.appendChild(svg);
+  const L = p.getTotalLength(), n = Math.max(2, Math.ceil(L / step)), out = [];
+  for (let i = 0; i <= n; i++) { const q = p.getPointAtLength(L * i / n); out.push({ x: q.x * W / SVG_W, y: q.y * H / SVG_H }); }
+  svg.remove(); return out;
+}
+const rev = a => a.slice().reverse();
+const ARENA = (() => {
+  const tl = sampleD(OUTER.tl, 10), bl = sampleD(OUTER.bl, 10), tr = sampleD(OUTER.tr, 10), br = sampleD(OUTER.br, 10);
+  const pieces = PIECES.map(spec => {
+    const tall = spec.includes('tall'), ids = spec.filter(v => typeof v === 'number');
+    let pts = sampleD(P[ids[0]]); if (ids[1]) pts = pts.concat(rev(sampleD(P[ids[1]])));
+    const cx = pts.reduce((a, q) => a + q.x, 0) / pts.length;
+    return { pts, tall, side: Math.abs(cx - W / 2) < 1.5 ? 'mid' : cx < W / 2 ? 'O' : 'D' };
+  });
+  return {
+    left: tl.concat(rev(bl)), right: tr.concat(rev(br)),
+    outline: tl.concat(rev(tr), br, rev(bl)),
+    pieces,
+  };
+})();
+
+/* ---------- model ---------- */
+function lineup() {
+  return [
+    { id:'O1', team:'O', label:'1', x:37, y:CY }, { id:'O2', team:'O', label:'2', x:30, y:14 },
+    { id:'O3', team:'O', label:'3', x:30, y:53 }, { id:'O4', team:'O', label:'4', x:14, y:CY },
+    { id:'D1', team:'D', label:'1', x:47, y:CY }, { id:'D2', team:'D', label:'2', x:54, y:14 },
+    { id:'D3', team:'D', label:'3', x:54, y:53 }, { id:'D4', team:'D', label:'4', x:72, y:CY },
+  ].map(p => ({ ...p, path: [], pauses: [], delay: 0, speed: 12 }));
+}
+function newPlay(name) { return { id: uid(), name, createdAt: Date.now(), players: lineup(), ballStart: 'O1', passes: [], ballSpeed: 30, notes: '' }; }
+function examplePlay() {
+  const p = newPlay('Example: give and go');
+  const g = id => p.players.find(q => q.id === id);
+  Object.assign(g('O1'), { delay: 0.8, path: [{ x: 40, y: 40 }, { x: 52, y: 44 }, { x: 66, y: 38 }] });
+  g('O2').path = [{ x: 50, y: 12 }, { x: 64, y: 20 }];
+  g('O2').pauses = [{ i: 0, d: 0.8 }];
+  Object.assign(g('O3'), { delay: 0.5, path: [{ x: 44, y: 58 }, { x: 58, y: 56 }] });
+  Object.assign(g('D1'), { delay: 1.2, speed: 7, path: [{ x: 55, y: 38 }] });
+  Object.assign(g('D2'), { delay: 1.8, speed: 6, path: [{ x: 60, y: 18 }] });
+  Object.assign(g('D4'), { delay: 3.0, speed: 5, path: [{ x: 78, y: 35 }] });
+  p.passes = [
+    { id: uid(), t: 1.0, from: 'O1', to: { id: 'O2' } },
+    { id: uid(), t: 2.8, from: 'O2', to: { id: 'O1' } },
+    { id: uid(), t: 4.0, from: 'O1', to: { pt: { x: GOALS[1].x, y: GOALS[1].y } } },
+  ];
+  p.notes = 'Example play. Offense 1 feeds Offense 2 on the top lane. Offense 2 holds for 0.8s to let Offense 1 get through the bottom half of the middle, then plays the return pass for the shot.';
+  return p;
+}
+
+let book = null;
+try { book = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+if (!book || !Array.isArray(book.plays) || !book.plays.length) {
+  const ex = examplePlay(), blank = newPlay('Blank lineup');
+  book = { plays: [ex, blank], current: ex.id };
+}
+let play = book.plays.find(p => p.id === book.current) || book.plays[0];
+
+/* ---------- saving: to the page (db capability) when available, else this browser ---------- */
+let db = null, dbMode = false, readOnly = false, firstSnap = true, localOnly = [];
+const lastSynced = {}, pend = new Set(), retried = new Set();
+let flushT = 0, writing = false, loadT = 0;
+const bodyOf = p => { const { id, updatedAt, ...rest } = p; return JSON.parse(JSON.stringify(rest)); };
+function save() {
+  book.current = play.id;
+  if (dbMode) { queueRemote(play.id); return; }
+  try { localStorage.setItem(KEY, JSON.stringify(book)); } catch (e) {}
+}
+const STATUS = {
+  local: ['Saved in this browser only', ''], loading: ['Loading plays…', 'busy'], saving: ['Saving…', 'busy'],
+  saved: ['Saved to the page', 'ok'], readonly: ['View only: changes are not saved', 'warn'],
+  offline: ["Can't reach saved plays yet", 'warn'], failed: ['Not saved. Check your connection', 'warn'],
+};
+function setStatus(k) { const el = $('#saveState'); el.textContent = STATUS[k][0]; el.className = 'savechip ' + STATUS[k][1]; }
+function queueRemote(id) {
+  if (!db || readOnly) return;
+  pend.add(id); setStatus('saving');
+  clearTimeout(flushT); flushT = setTimeout(flush, 700);
+}
+async function flush() {
+  if (writing) { clearTimeout(flushT); flushT = setTimeout(flush, 300); return; }
+  writing = true;
+  for (const id of [...pend]) {
+    pend.delete(id);
+    const p = book.plays.find(q => q.id === id); if (!p) continue;
+    const body = bodyOf(p), js = JSON.stringify(body);
+    if (lastSynced[id] === js) continue;
+    body.updatedAt = Date.now();
+    try { await db.collection('plays').doc(id).set(body); lastSynced[id] = js; p.updatedAt = body.updatedAt; retried.delete(id); }
+    catch (e) { writeFailed(e, id); }
+  }
+  writing = false;
+  if (!pend.size && !readOnly && $('#saveState').classList.contains('busy')) setStatus('saved');
+  renderPlaybook();
+}
+function writeFailed(e, id) {
+  const c = e && e.code;
+  if (c === 'invalid_argument') { readOnly = true; applyReadOnly(); toast('You can open and play these back, but you do not have permission to save changes.'); }
+  else if (c === 'quota_exceeded') { setStatus('failed'); toast('The playbook is full. Delete some plays to save new ones.'); }
+  else if ((c === 'unavailable' || !c) && !retried.has(id)) { retried.add(id); pend.add(id); clearTimeout(flushT); flushT = setTimeout(flush, 800 + Math.random() * 800); }
+  else { setStatus('failed'); toast('A play could not be saved. Your changes are still on screen.'); }
+}
+function applyReadOnly() { setStatus('readonly'); ['#newBtn', '#dupBtn', '#delBtn'].forEach(s => { $(s).disabled = true; }); renderImport(); renderPlaybook(); }
+function onPlays(snap) {
+  if (snap.empty && snap.metadata.fromCache) return; /* wait for the store's real answer */
+  if (!snap.metadata.fromCache) clearTimeout(loadT);
+  const remote = [];
+  for (const d of snap.docs) {
+    const v = d.data(); if (!v || !Array.isArray(v.players)) continue;
+    const p = { id: d.id, ...JSON.parse(JSON.stringify(v)) };
+    lastSynced[p.id] = JSON.stringify(bodyOf(p));
+    remote.push(p);
+  }
+  const remoteIds = new Set(remote.map(p => p.id));
+  if (firstSnap) {
+    firstSnap = false;
+    let hidden = false; try { hidden = localStorage.getItem(KEY + '.imported') === '1'; } catch (e) {}
+    const remoteNames = new Set(remote.map(p => p.name));
+    localOnly = hidden ? [] : book.plays.filter(p => !remoteIds.has(p.id) && !remoteNames.has(p.name));
+    book.plays = book.plays.filter(p => remoteIds.has(p.id) || pend.has(p.id));
+  }
+  const busy = id => id === play.id && (drag || pend.has(id) || writing);
+  const merged = remote.map(r => { const loc = book.plays.find(p => p.id === r.id); return loc && busy(loc.id) ? loc : r; });
+  const keep = book.plays.filter(p => !remoteIds.has(p.id) && lastSynced[p.id] === undefined && (pend.has(p.id) || p.id === play.id));
+  book.plays = [...merged, ...keep].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  if (!book.plays.length) book.plays = [newPlay('Play 1')];
+  const cur = book.plays.find(p => p.id === play.id);
+  if (cur !== play) {
+    if (!cur) { undo = []; selected = null; selPass = null; passFrom = null; t = 0; }
+    play = cur || book.plays[0];
+    if (selected && !getP(selected)) selected = null;
+    if (selPass && !play.passes.some(e => e.id === selPass)) selPass = null;
+    loadPlayUI(); renderPanel(); renderTimeline(); draw();
+  } else renderPlaybook();
+  renderImport();
+  if (!pend.size && !writing) setStatus(readOnly ? 'readonly' : snap.metadata.fromCache ? 'loading' : 'saved');
+}
+async function connectDb() {
+  if (!window.claude || typeof window.claude.use !== 'function') { setStatus('local'); return; }
+  let d = null; try { d = await window.claude.use('db'); } catch (e) {}
+  if (!d) { setStatus('local'); return; }
+  db = d; dbMode = true; setStatus('loading'); renderPlaybook();
+  try { const u = await window.claude.use('user'); if (u && (await u.can('data.write')) === false) { readOnly = true; applyReadOnly(); } } catch (e) {}
+  loadT = setTimeout(() => setStatus('offline'), 10000);
+  db.collection('plays').onSnapshot(onPlays, () => { clearTimeout(loadT); setStatus('failed'); toast("Saved plays can't be reached right now."); });
+}
+function renderImport() {
+  const box = $('#pbImport');
+  if (!dbMode || readOnly || !localOnly.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const n = localOnly.length;
+  $('#pbImportMsg').textContent = `${n} play${n === 1 ? ' is' : 's are'} saved only in this browser: ${localOnly.map(p => p.name || 'Untitled play').join(', ')}.`;
+}
+
+let undo = [];
+function pushUndo() { undo.push(JSON.stringify(play)); if (undo.length > 100) undo.shift(); }
+function doUndo() {
+  if (!undo.length) { toast('Nothing to undo.'); return; }
+  const prev = JSON.parse(undo.pop());
+  const i = book.plays.findIndex(p => p.id === play.id);
+  book.plays[i] = prev; play = prev;
+  if (selected && !getP(selected)) selected = null;
+  if (selPass && !play.passes.some(e => e.id === selPass)) selPass = null;
+  loadPlayUI(); changed();
+}
+
+/* ---------- simulation ---------- */
+const getP = id => play.players.find(p => p.id === id);
+const nameOf = id => { const p = getP(id); return p ? (p.team === 'O' ? 'Off ' : 'Def ') + p.label : '?'; };
+function pathLen(p) { let L = 0, a = { x: p.x, y: p.y }; for (const b of p.path) { L += dist(a, b); a = b; } return L; }
+/* Pause points: p.pauses = [{ i, d }] — stop for d seconds on arriving at route point p.path[i]. */
+const livePauses = p => (p.pauses || []).filter(z => z.i < p.path.length - 1);
+const pauseMap = p => { const m = {}; for (const z of livePauses(p)) m[z.i] = (m[z.i] || 0) + z.d; return m; };
+function endTime(p) { return p.path.length ? p.delay + pathLen(p) / p.speed + livePauses(p).reduce((a, z) => a + z.d, 0) : 0; }
+function posAt(p, t) {
+  if (!p.path.length || t <= p.delay) return { x: p.x, y: p.y };
+  let rem = t - p.delay, a = { x: p.x, y: p.y };
+  const pm = pauseMap(p);
+  for (let k = 0; k < p.path.length; k++) {
+    const b = p.path[k], st = dist(a, b) / p.speed;
+    if (rem <= st) return st ? lerp(a, b, rem / st) : { ...b };
+    rem -= st;
+    const w = pm[k] || 0;
+    if (rem <= w) return { ...b };
+    rem -= w; a = b;
+  }
+  return { ...a };
+}
+function arriveAt(p, i) {
+  let tt = p.delay, a = { x: p.x, y: p.y }; const pm = pauseMap(p);
+  for (let k = 0; k <= i; k++) { tt += dist(a, p.path[k]) / p.speed; if (k < i) tt += pm[k] || 0; a = p.path[k]; }
+  return tt;
+}
+const carry = (p, t) => { const q = posAt(p, t); return { x: q.x + (p.team === 'O' ? 1.4 : -1.4), y: q.y - 1.4 }; };
+const goalNear = pt => GOALS.find(g => dist(g, pt) < 5);
+
+function analyze() {
+  const out = []; let holder = play.ballStart, rest = null, prevArr = 0;
+  const bs = play.ballSpeed || 30;
+  const ps = [...play.passes].sort((a, b) => a.t - b.t);
+  for (const e of ps) {
+    const from = getP(e.from); if (!from) continue;
+    let valid = true, reason = '';
+    if (e.t < prevArr - 1e-6) { valid = false; reason = 'The previous pass is still in the air'; }
+    else if (holder && holder !== e.from) { valid = false; reason = `${nameOf(holder)} has the ball here, not ${nameOf(e.from)}`; }
+    else if (!holder && rest && dist(posAt(from, e.t), rest) > 4) { valid = false; reason = `${nameOf(e.from)} isn't near the loose ball`; }
+    const start = carry(from, e.t);
+    let target, arr, recv = null;
+    if (e.to.id) {
+      recv = getP(e.to.id); if (!recv) continue;
+      let ft = dist(start, carry(recv, e.t)) / bs;
+      for (let i = 0; i < 3; i++) { target = carry(recv, e.t + ft); ft = dist(start, target) / bs; }
+      target = carry(recv, e.t + ft); arr = e.t + ft;
+    } else { target = e.to.pt; arr = e.t + dist(start, target) / bs; }
+    const kind = recv ? (recv.team === from.team ? 'pass' : 'turnover') : (goalNear(target) ? 'shot' : 'throw');
+    out.push({ e, valid, reason, start, target, arr, kind, recv, from });
+    holder = recv ? recv.id : null; rest = recv ? null : target; prevArr = arr;
+  }
+  return out;
+}
+function ballAt(t, an) {
+  let last = null;
+  for (const a of an) { if (a.e.t <= t + 1e-9) last = a; else break; }
+  if (!last) { const h = getP(play.ballStart); return h ? { ...carry(h, t), state: 'held', holder: h.id } : { x: W / 2, y: CY, state: 'loose' }; }
+  if (t < last.arr) { const k = (t - last.e.t) / ((last.arr - last.e.t) || 1); return { ...lerp(last.start, last.target, k), state: 'air', a: last, k }; }
+  if (last.recv) return { ...carry(last.recv, t), state: 'held', holder: last.recv.id };
+  return { ...last.target, state: 'loose' };
+}
+function duration(an) {
+  let d = 6;
+  for (const p of play.players) d = Math.max(d, endTime(p) + 0.6);
+  for (const a of an) d = Math.max(d, a.arr + 0.8);
+  return Math.ceil(d * 2) / 2;
+}
+
+/* ---------- view state ---------- */
+let t = 0, dur = 6, playing = false, rate = 1, tool = 'move', view3d = false;
+let selected = null, selPass = null, passFrom = null, drag = null, hover = null;
+let moveRoute = false, showLines = true, arenaImg = null, arenaOpacity = 0.5;
+
+/* ---------- 2D canvas ---------- */
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let s = 1, dpr = 1, cssW = 0, cssH = 0;
+const X = x => (x - VX0) * s, Y = y => (y - VY0) * s;
+function resize() {
+  let w = $('#wrap').clientWidth;
+  if (window.innerWidth > 980) { const maxH = Math.max(300, window.innerHeight - 240); if (w * VH / VW > maxH) w = maxH * VW / VH; }
+  dpr = window.devicePixelRatio || 1;
+  const h = w * VH / VW; cssW = w; cssH = h;
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  s = w / VW;
+  if (R3) R3.resize(w, h);
+  draw();
+}
+function rr(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
+function polyPath(pts) { ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(X(q.x), Y(q.y)) : ctx.moveTo(X(q.x), Y(q.y))); ctx.closePath(); }
+function tokenPath(p, q, r = PR) {
+  ctx.beginPath();
+  if (p.team === 'O') ctx.arc(X(q.x), Y(q.y), r * s, 0, Math.PI * 2);
+  else { for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; const x = X(q.x) + Math.cos(a) * r * 1.12 * s, y = Y(q.y) + Math.sin(a) * r * 1.12 * s; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); }
+}
+const teamCol = p => p.team === 'O' ? C.off : C.def;
+
+function draw() {
+  const an = analyze(), ball = ballAt(t, an);
+  if (view3d && R3) { R3.update(an, ball); return; }
+  if (!cv.width) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  drawField(); drawRoutes(); drawPasses(an); drawGhosts(); drawDrag(); drawPlayers(ball); drawBall(ball); drawPreview(ball);
+}
+function drawField() {
+  /* floor, tinted by half */
+  polyPath(ARENA.outline); ctx.fillStyle = C.field; ctx.fill();
+  ctx.globalAlpha = .13; polyPath(ARENA.left); ctx.fillStyle = C.off; ctx.fill();
+  polyPath(ARENA.right); ctx.fillStyle = C.def; ctx.fill(); ctx.globalAlpha = 1;
+  if (arenaImg) { ctx.save(); polyPath(ARENA.outline); ctx.clip(); ctx.globalAlpha = arenaOpacity; ctx.drawImage(arenaImg, X(0), Y(0), W * s, H * s); ctx.restore(); }
+  if (showLines) {
+    ctx.save(); polyPath(ARENA.outline); ctx.clip();
+    ctx.fillStyle = C.fieldline; ctx.globalAlpha = .55;
+    for (let x = 5; x < W; x += 5) for (let y = 5; y < H; y += 5) ctx.fillRect(X(x) - .8, Y(y) - .8, 1.6, 1.6);
+    ctx.restore();
+  }
+  ctx.save(); ctx.strokeStyle = C.fieldline; ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]);
+  ctx.beginPath(); ctx.moveTo(X(W / 2), Y(0)); ctx.lineTo(X(W / 2), Y(H)); ctx.stroke(); ctx.restore();
+  /* platforms and blocks */
+  for (const pc of ARENA.pieces) {
+    const col = pc.side === 'O' ? C.off : pc.side === 'D' ? C.def : C.fg;
+    polyPath(pc.pts);
+    ctx.fillStyle = C.bg; ctx.globalAlpha = pc.tall ? .9 : .6; ctx.fill();
+    ctx.fillStyle = col; ctx.globalAlpha = pc.tall ? .12 : .2; ctx.fill();
+    ctx.globalAlpha = .85; ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  /* outer wall */
+  polyPath(ARENA.outline); ctx.strokeStyle = C.accent; ctx.lineWidth = 2.5; ctx.stroke();
+  /* goals in the end walls */
+  for (const g of GOALS) {
+    const c = g.team === 'O' ? C.off : C.def, gx = g.team === 'O' ? 0 : W - GOAL_D;
+    ctx.fillStyle = c; ctx.globalAlpha = .45; ctx.fillRect(X(gx), Y(CY - GOAL_W / 2), GOAL_D * s, GOAL_W * s);
+    ctx.globalAlpha = 1; ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.strokeRect(X(gx), Y(CY - GOAL_W / 2), GOAL_D * s, GOAL_W * s);
+    ctx.font = `700 ${Math.max(8, 1.2 * s)}px "Chakra Petch", sans-serif`; ctx.textBaseline = 'middle';
+    ctx.textAlign = g.team === 'O' ? 'left' : 'right';
+    const lx = g.team === 'O' ? X(GOAL_D + .8) : X(W - GOAL_D - .8);
+    ctx.lineWidth = 3; ctx.strokeStyle = C.bg; ctx.strokeText('GOAL', lx, Y(CY));
+    ctx.fillStyle = c; ctx.fillText('GOAL', lx, Y(CY));
+  }
+  ctx.fillStyle = C.muted; ctx.font = `600 ${Math.max(9, 1.3 * s)}px "Chakra Petch", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('OFFENSE ATTACKS  →', X(W / 2), Y(-2));
+}
+function arrowHead(pts, col) {
+  const b = pts[pts.length - 1]; let a = null;
+  for (let i = pts.length - 2; i >= 0; i--) { if (dist(pts[i], b) > 1.2) { a = pts[i]; break; } }
+  if (!a) a = pts[0]; if (dist(a, b) < .01) return;
+  const ang = Math.atan2(b.y - a.y, b.x - a.x), L = 1.5 * s;
+  ctx.fillStyle = col; ctx.beginPath();
+  ctx.moveTo(X(b.x) + Math.cos(ang) * L * .3, Y(b.y) + Math.sin(ang) * L * .3);
+  ctx.lineTo(X(b.x) - Math.cos(ang - .5) * L, Y(b.y) - Math.sin(ang - .5) * L);
+  ctx.lineTo(X(b.x) - Math.cos(ang + .5) * L, Y(b.y) - Math.sin(ang + .5) * L);
+  ctx.closePath(); ctx.fill();
+}
+function strokePoly(pts) {
+  ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(X(q.x), Y(q.y)) : ctx.moveTo(X(q.x), Y(q.y)));
+  const col = ctx.strokeStyle, lw = ctx.lineWidth, dash = ctx.getLineDash();
+  ctx.setLineDash([]); ctx.strokeStyle = C.bg; ctx.lineWidth = lw + 3; ctx.stroke();
+  ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.stroke();
+}
+function drawRoutes() {
+  for (const p of play.players) {
+    if (!p.path.length || (drag && drag.type === 'path' && drag.id === p.id)) continue;
+    const col = teamCol(p), pts = [{ x: p.x, y: p.y }, ...p.path];
+    ctx.save(); ctx.globalAlpha = p.id === selected ? 1 : .75;
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.5, .32 * s); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.setLineDash([1 * s, .7 * s]); strokePoly(pts); ctx.setLineDash([]);
+    arrowHead(pts, col);
+    const T = endTime(p); ctx.fillStyle = col;
+    for (let k = Math.max(1, Math.ceil(p.delay + 1e-3)); k < T; k++) { const q = posAt(p, k); ctx.beginPath(); ctx.arc(X(q.x), Y(q.y), Math.max(2, .4 * s), 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    for (const z of livePauses(p)) drawPauseMark(p.path[z.i], z.d, col);
+    ctx.restore();
+  }
+}
+function drawPauseMark(q, d, col) {
+  const x = X(q.x), y = Y(q.y);
+  ctx.beginPath(); ctx.arc(x, y, Math.max(4, .6 * s), 0, Math.PI * 2);
+  ctx.fillStyle = C.bg; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
+  const fs = Math.max(9, 1.05 * s), txt = `${+d.toFixed(1)}s`;
+  ctx.font = `700 ${fs}px "JetBrains Mono", monospace`;
+  const tw = ctx.measureText(txt).width + 8, bh = fs + 5, by = y - Math.max(6, .8 * s) - bh;
+  rr(x - tw / 2, by, tw, bh, bh / 2); ctx.fillStyle = C.bg; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = col; ctx.stroke();
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, by + bh / 2 + .5);
+}
+function drawPasses(an) {
+  an.forEach((a, i) => {
+    const col = a.valid ? C.ball : C.warn;
+    ctx.save(); ctx.globalAlpha = a.e.id === selPass ? .95 : .55;
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(1.3, .26 * s); ctx.lineCap = 'round';
+    ctx.setLineDash([.12 * s, .65 * s]); strokePoly([a.start, a.target]); ctx.setLineDash([]);
+    if (a.kind === 'shot' || a.kind === 'throw') { ctx.beginPath(); ctx.arc(X(a.target.x), Y(a.target.y), 1.2 * s, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.globalAlpha = a.e.id === selPass ? 1 : .85;
+    const m = lerp(a.start, a.target, .5);
+    ctx.fillStyle = C.bg; ctx.beginPath(); ctx.arc(X(m.x), Y(m.y), 1.1 * s, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = col; ctx.font = `700 ${Math.max(8, 1.15 * s)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), X(m.x), Y(m.y) + .5);
+    ctx.restore();
+  });
+}
+function drawGhosts() {
+  if (t < .02) return;
+  ctx.save(); ctx.globalAlpha = .3; ctx.lineWidth = 1.3;
+  for (const p of play.players) { ctx.strokeStyle = teamCol(p); tokenPath(p, { x: p.x, y: p.y }); ctx.stroke(); }
+  ctx.restore();
+}
+function drawDrag() {
+  if (!drag || drag.type !== 'path') return;
+  const p = getP(drag.id); const pts = [{ x: p.x, y: p.y }, ...drag.pts]; if (pts.length < 2) return;
+  ctx.save(); ctx.strokeStyle = teamCol(p); ctx.lineWidth = Math.max(2, .4 * s); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  strokePoly(pts); arrowHead(pts, teamCol(p)); ctx.restore();
+}
+function drawPlayers(ball) {
+  const order = [...play.players].sort((a, b) => (a.id === selected) - (b.id === selected));
+  for (const p of order) {
+    const q = posAt(p, t), col = teamCol(p);
+    if (ball.state === 'held' && ball.holder === p.id) { ctx.save(); ctx.globalAlpha = .25; ctx.fillStyle = C.ball; tokenPath(p, q, PR + 1); ctx.fill(); ctx.restore(); }
+    tokenPath(p, q); ctx.lineWidth = 4; ctx.strokeStyle = C.bg; ctx.stroke();
+    ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = C.ball; ctx.stroke();
+    const lab = String(p.label).slice(0, 6);
+    ctx.fillStyle = C.bg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.max(8, (lab.length <= 2 ? 1.45 : lab.length <= 3 ? 1.05 : .8) * s)}px "JetBrains Mono", monospace`;
+    ctx.fillText(lab, X(q.x), Y(q.y) + .5);
+    if (p.id === selected || p.id === passFrom) {
+      ctx.save(); ctx.strokeStyle = p.id === passFrom ? C.ball : C.fg; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.arc(X(q.x), Y(q.y), (PR + 1.1) * s, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+  }
+}
+function drawBall(ball) {
+  if (ball.state === 'air') {
+    const a = ball.a;
+    for (let k = 1; k <= 4; k++) {
+      const q = lerp(a.start, a.target, Math.max(0, ball.k - k * .05));
+      ctx.globalAlpha = .28 - k * .06; ctx.fillStyle = C.ball;
+      ctx.beginPath(); ctx.arc(X(q.x), Y(q.y), (.9 - k * .1) * s, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+  ctx.beginPath(); ctx.arc(X(ball.x), Y(ball.y), .9 * s, 0, Math.PI * 2);
+  ctx.fillStyle = C.ball; ctx.fill(); ctx.lineWidth = 1.6; ctx.strokeStyle = C.bg; ctx.stroke();
+}
+function drawPreview(ball) {
+  if (tool !== 'pass' || !hover || drag || ball.state === 'air') return;
+  const from = ball.state === 'held' ? ball : (passFrom ? carry(getP(passFrom), t) : null);
+  if (!from) return;
+  ctx.save(); ctx.globalAlpha = .7; ctx.strokeStyle = C.ball; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
+  strokePoly([from, hover]); ctx.restore();
+}
+
+/* ---------- 3D view (three.js) ---------- */
+let R3 = null;
+function init3D() {
+  if (R3) return R3;
+  if (!window.THREE) return null;
+  const T3 = window.THREE, host = $('#v3');
+  const renderer = new T3.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  host.appendChild(renderer.domElement);
+  const scene = new T3.Scene(); scene.background = new T3.Color(C.bg);
+  const camera = new T3.PerspectiveCamera(42, 1.3, 0.5, 600);
+  camera.position.set(0, 62, 70);
+  const controls = T3.OrbitControls ? new T3.OrbitControls(camera, renderer.domElement) : null;
+  if (controls) { controls.target.set(0, 0, 0); controls.maxPolarAngle = Math.PI * 0.47; controls.minDistance = 15; controls.maxDistance = 200; controls.enableDamping = false; controls.update(); }
+  scene.add(new T3.HemisphereLight(0xdfe6ff, 0x141a33, 0.9));
+  const sun = new T3.DirectionalLight(0xffffff, 0.7); sun.position.set(-30, 60, 25); scene.add(sun);
+
+  const V = (x, y, h = 0) => new T3.Vector3(x - W / 2, h, y - CY);
+  const shapeOf = pts => { const sh = new T3.Shape(); pts.forEach((q, i) => i ? sh.lineTo(q.x - W / 2, -(q.y - CY)) : sh.moveTo(q.x - W / 2, -(q.y - CY))); return sh; };
+  const tint = (hex, k) => new T3.Color(C.field).lerp(new T3.Color(hex), k);
+
+  /* floor halves */
+  for (const [pts, col] of [[ARENA.left, C.off], [ARENA.right, C.def]]) {
+    const g = new T3.ShapeGeometry(shapeOf(pts)); g.rotateX(-Math.PI / 2);
+    scene.add(new T3.Mesh(g, new T3.MeshStandardMaterial({ color: tint(col, .22), roughness: .9 })));
+  }
+  /* halfway line */
+  { const g = new T3.BufferGeometry().setFromPoints([V(W / 2, 0, .03), V(W / 2, H, .03)]);
+    const l = new T3.Line(g, new T3.LineDashedMaterial({ color: C.fieldline, dashSize: 1.2, gapSize: 1 })); l.computeLineDistances(); scene.add(l); }
+  /* outer wall: vertical ribbon around the outline, amber rail on top */
+  { const WALL = 3, o = ARENA.outline, pos = [];
+    for (let i = 0; i < o.length; i++) {
+      const a = o[i], b = o[(i + 1) % o.length];
+      const A0 = V(a.x, a.y, 0), B0 = V(b.x, b.y, 0), A1 = V(a.x, a.y, WALL), B1 = V(b.x, b.y, WALL);
+      pos.push(A0.x, A0.y, A0.z, B0.x, B0.y, B0.z, B1.x, B1.y, B1.z, A0.x, A0.y, A0.z, B1.x, B1.y, B1.z, A1.x, A1.y, A1.z);
+    }
+    const g = new T3.BufferGeometry(); g.setAttribute('position', new T3.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    scene.add(new T3.Mesh(g, new T3.MeshStandardMaterial({ color: 0xc9d0ea, transparent: true, opacity: .28, side: T3.DoubleSide, depthWrite: false })));
+    const rail = new T3.LineLoop(new T3.BufferGeometry().setFromPoints(o.map(q => V(q.x, q.y, WALL))), new T3.LineBasicMaterial({ color: C.accent }));
+    scene.add(rail);
+    scene.add(new T3.LineLoop(new T3.BufferGeometry().setFromPoints(o.map(q => V(q.x, q.y, .02))), new T3.LineBasicMaterial({ color: C.accent })));
+  }
+  /* platforms and blocks, extruded */
+  for (const pc of ARENA.pieces) {
+    const h = pc.tall ? 3.5 : 1.3, col = pc.side === 'O' ? C.off : pc.side === 'D' ? C.def : '#cfd6f2';
+    const g = new T3.ExtrudeGeometry(shapeOf(pc.pts), { depth: h, bevelEnabled: false }); g.rotateX(-Math.PI / 2);
+    const m = new T3.Mesh(g, new T3.MeshStandardMaterial({ color: pc.tall ? 0x2a3150 : tint(col, .55), roughness: .7 }));
+    scene.add(m);
+    const e = new T3.LineSegments(new T3.EdgesGeometry(g, 30), new T3.LineBasicMaterial({ color: col }));
+    scene.add(e);
+  }
+  /* goals */
+  for (const g of GOALS) {
+    const col = g.team === 'O' ? C.off : C.def, gx = g.team === 'O' ? GOAL_D / 2 : W - GOAL_D / 2;
+    const m = new T3.Mesh(new T3.BoxGeometry(GOAL_D, 3, GOAL_W), new T3.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .6, transparent: true, opacity: .65 }));
+    m.position.copy(V(gx, CY, 1.5)); scene.add(m);
+  }
+  /* dynamic layers */
+  const dyn = new T3.Group(); scene.add(dyn);
+  const tokens = new Map();
+  function labelSprite(text, col) {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 64; const x = c.getContext('2d');
+    x.font = '700 40px "JetBrains Mono", monospace'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineWidth = 8; x.strokeStyle = C.bg; x.strokeText(text, 64, 34); x.fillStyle = col; x.fillText(text, 64, 34);
+    const sp = new T3.Sprite(new T3.SpriteMaterial({ map: new T3.CanvasTexture(c), depthTest: false }));
+    sp.scale.set(3.2, 1.6, 1); sp.renderOrder = 10; return sp;
+  }
+  function token(p) {
+    const key = p.id + '|' + p.label + '|' + p.team;
+    let tk = tokens.get(p.id);
+    if (tk && tk.key === key) return tk;
+    if (tk) scene.remove(tk.group);
+    const grp = new T3.Group(), col = teamCol(p);
+    const body = new T3.Mesh(new T3.CylinderGeometry(.9, .9, 2, p.team === 'O' ? 24 : 6), new T3.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: .25, roughness: .5 }));
+    body.position.y = 1; grp.add(body);
+    const head = new T3.Mesh(new T3.SphereGeometry(.55, 16, 12), new T3.MeshStandardMaterial({ color: 0xf2f4ff, roughness: .4 }));
+    head.position.y = 2.5; grp.add(head);
+    const ring = new T3.Mesh(new T3.RingGeometry(1.2, 1.55, 32), new T3.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .6, side: T3.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = .05; ring.visible = false; grp.add(ring);
+    const lab = labelSprite(String(p.label).slice(0, 4), col); lab.position.y = 4.1; grp.add(lab);
+    scene.add(grp);
+    tk = { key, group: grp, ring }; tokens.set(p.id, tk); return tk;
+  }
+  const ballMesh = new T3.Mesh(new T3.SphereGeometry(.6, 20, 14), new T3.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: .7 }));
+  scene.add(ballMesh);
+  const ballShadow = new T3.Mesh(new T3.CircleGeometry(.6, 20), new T3.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .35 }));
+  ballShadow.rotation.x = -Math.PI / 2; scene.add(ballShadow);
+
+  let sig = '';
+  const arcH = a => Math.min(6, dist(a.start, a.target) * .12);
+  function rebuild(an) {
+    while (dyn.children.length) { const c = dyn.children.pop(); c.geometry && c.geometry.dispose(); }
+    for (const p of play.players) {
+      if (!p.path.length) continue;
+      const pts = [{ x: p.x, y: p.y }, ...p.path].map(q => V(q.x, q.y, .12));
+      const l = new T3.Line(new T3.BufferGeometry().setFromPoints(pts), new T3.LineDashedMaterial({ color: teamCol(p), dashSize: 1, gapSize: .6 }));
+      l.computeLineDistances(); dyn.add(l);
+      for (const z of livePauses(p)) {
+        const sp = labelSprite(`${+z.d.toFixed(1)}s`, teamCol(p)); const q = p.path[z.i];
+        sp.position.copy(V(q.x, q.y, 1.2)); sp.scale.set(2.6, 1.3, 1); dyn.add(sp);
+      }
+    }
+    for (const a of an) {
+      const pts = []; const hgt = arcH(a);
+      for (let i = 0; i <= 24; i++) { const k = i / 24, q = lerp(a.start, a.target, k); pts.push(V(q.x, q.y, 1.6 + Math.sin(Math.PI * k) * hgt)); }
+      const l = new T3.Line(new T3.BufferGeometry().setFromPoints(pts), new T3.LineDashedMaterial({ color: a.valid ? 0xffffff : C.warn, dashSize: .35, gapSize: .5, transparent: true, opacity: .75 }));
+      l.computeLineDistances(); dyn.add(l);
+    }
+  }
+  function update(an, ball) {
+    const ns = JSON.stringify([play.players.map(p => [p.x, p.y, p.path, p.pauses, p.delay, p.speed]), play.passes, play.ballSpeed]);
+    if (ns !== sig) { sig = ns; rebuild(an); }
+    const seen = new Set();
+    for (const p of play.players) {
+      const tk = token(p), q = posAt(p, t); seen.add(p.id);
+      tk.group.position.copy(V(q.x, q.y, 0));
+      tk.ring.visible = ball.state === 'held' && ball.holder === p.id;
+    }
+    for (const [id, tk] of tokens) if (!seen.has(id)) { scene.remove(tk.group); tokens.delete(id); }
+    let bh = 1.6;
+    if (ball.state === 'air') bh = 1.6 + Math.sin(Math.PI * ball.k) * arcH(ball.a);
+    else if (ball.state === 'loose') bh = .6;
+    ballMesh.position.copy(V(ball.x, ball.y, bh));
+    ballShadow.position.copy(V(ball.x, ball.y, .04));
+    renderer.render(scene, camera);
+  }
+  function resizeR(w, h) { renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); if (view3d) draw(); }
+  if (controls) controls.addEventListener('change', () => { if (view3d) draw(); });
+  R3 = { update, resize: resizeR };
+  resizeR(cssW || 800, cssH || 600);
+  return R3;
+}
+function setView3d(on) {
+  if (on && !init3D()) { toast('The 3D view could not load. Check your connection and reload.'); return; }
+  view3d = on;
+  $('#view3dBtn').setAttribute('aria-pressed', on);
+  cv.hidden = on; $('#v3').hidden = !on;
+  passFrom = null;
+  document.querySelectorAll('.tool[data-tool]').forEach(b => b.setAttribute('aria-pressed', !on && b.dataset.tool === tool));
+  $('#hint').innerHTML = on ? HINT3D : HINTS[tool];
+  if (on && R3) R3.resize(cssW, cssH);
+  draw();
+}
+
+/* ---------- pointer (2D) ---------- */
+function toWorld(ev) { const r = cv.getBoundingClientRect(); return { x: (ev.clientX - r.left) / s + VX0, y: (ev.clientY - r.top) / s + VY0 }; }
+const clampW = w => ({ x: +clamp(w.x, 0, W).toFixed(2), y: +clamp(w.y, 0, H).toFixed(2) });
+function hitAt(w, tt) { let best = null, bd = 2.9; for (const p of play.players) { const d = dist(posAt(p, tt), w); if (d < bd) { bd = d; best = p; } } return best; }
+function hitRoute(w) {
+  let best = null;
+  for (const p of play.players) {
+    if (!p.path.length) continue;
+    let a = { x: p.x, y: p.y };
+    p.path.forEach((b, k) => {
+      const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+      const u = L2 ? clamp(((w.x - a.x) * dx + (w.y - a.y) * dy) / L2, 0, 1) : 0;
+      const q = { x: a.x + dx * u, y: a.y + dy * u }, d = dist(q, w);
+      if (d < 1.3 && (!best || d < best.d)) best = { p, k, q, d };
+      a = b;
+    });
+  }
+  return best;
+}
+/* Adds (or lengthens) a pause at the tapped spot, splitting the route there if needed. Returns false at the route's end. */
+function addPause(h) {
+  const p = h.p; p.pauses = p.pauses || [];
+  const segEnd = p.path[h.k], segStart = h.k ? p.path[h.k - 1] : null;
+  let idx;
+  if (dist(h.q, segEnd) < .5) idx = h.k;
+  else if (segStart && dist(h.q, segStart) < .5) idx = h.k - 1;
+  else {
+    p.path.splice(h.k, 0, { x: +h.q.x.toFixed(2), y: +h.q.y.toFixed(2) });
+    p.pauses.forEach(z => { if (z.i >= h.k) z.i++; });
+    idx = h.k;
+  }
+  if (idx >= p.path.length - 1) return false;
+  const ex = p.pauses.find(z => z.i === idx);
+  if (ex) ex.d = +Math.min(30, ex.d + 1).toFixed(1); else p.pauses.push({ i: idx, d: 1 });
+  p.pauses.sort((a, b) => a.i - b.i);
+  return idx;
+}
+function hitEnd(w) { let best = null, bd = 2.3; for (const p of play.players) { if (!p.path.length) continue; const d = dist(p.path[p.path.length - 1], w); if (d < bd) { bd = d; best = p; } } return best; }
+
+cv.addEventListener('pointerdown', ev => {
+  const w = toWorld(ev);
+  try { cv.setPointerCapture(ev.pointerId); } catch (e) {}
+  if (tool === 'move') {
+    const p = hitAt(w, t);
+    if (!p) { if (selected) { selected = null; renderPanel(); } draw(); return; }
+    pushUndo(); pausePlayback(); setT(0);
+    selected = p.id;
+    drag = { type: 'move', id: p.id, w0: w, x0: p.x, y0: p.y, path0: p.path.map(q => ({ ...q })), moved: false };
+    renderPanel();
+  } else if (tool === 'route') {
+    pausePlayback(); setT(0);
+    let p = hitEnd(w), extend = true;
+    if (!p) { p = hitAt(w, 0); extend = false; }
+    const hr = p ? null : hitRoute(w);
+    if (p) { pushUndo(); selected = p.id; drag = { type: 'path', id: p.id, pts: extend ? p.path.slice() : [], dirty: false, extend }; }
+    else if (hr) {
+      pushUndo();
+      const idx = addPause(hr);
+      if (idx === false) { undo.pop(); toast('That is the end of the route. Pauses go partway along it.'); }
+      else {
+        selected = hr.p.id; changed();
+        const z = hr.p.pauses.find(q => q.i === idx);
+        toast(`${nameOf(hr.p.id)} now stops here for ${z.d}s. Tap again to add a second, or set it on the right.`);
+      }
+    }
+    else if (selected) { const sp = getP(selected); pushUndo(); drag = { type: 'path', id: sp.id, pts: [...sp.path, clampW(w)], dirty: true, extend: true }; }
+    else toast('Tap a player to start drawing their route.');
+    renderPanel();
+  } else if (tool === 'pass') handlePass(w);
+  draw();
+});
+cv.addEventListener('pointermove', ev => {
+  const w = toWorld(ev); hover = w;
+  if (drag && drag.type === 'move') {
+    const p = getP(drag.id), dx = w.x - drag.w0.x, dy = w.y - drag.w0.y;
+    p.x = +clamp(drag.x0 + dx, 0, W).toFixed(2); p.y = +clamp(drag.y0 + dy, 0, H).toFixed(2);
+    if (moveRoute) p.path = drag.path0.map(q => ({ x: +(q.x + dx).toFixed(2), y: +(q.y + dy).toFixed(2) }));
+    drag.moved = true;
+  } else if (drag && drag.type === 'path') {
+    const p = getP(drag.id), pts = drag.pts, last = pts.length ? pts[pts.length - 1] : { x: p.x, y: p.y }, c = clampW(w);
+    if (dist(last, c) > 0.75) { pts.push(c); drag.dirty = true; }
+  }
+  draw();
+});
+function endDrag() {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.type === 'move') { if (!d.moved) undo.pop(); else changed(); }
+  else if (d.type === 'path') {
+    if (!d.dirty) undo.pop();
+    else { const p = getP(d.id); p.path = d.pts; if (!d.extend) p.pauses = []; changed(); }
+  }
+  draw();
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { hover = null; if (!drag) draw(); });
+
+function handlePass(w) {
+  pausePlayback();
+  const an = analyze(), b = ballAt(t, an), hit = hitAt(w, t);
+  if (b.state === 'air') { toast('The ball is in the air here. Move the timeline past the catch first.'); return; }
+  let from;
+  if (b.state === 'held') from = b.holder;
+  else {
+    if (!passFrom) {
+      if (!hit) { toast('The ball is loose. Tap the player who picks it up.'); return; }
+      passFrom = hit.id; toast(`${nameOf(hit.id)} picks it up. Now tap where it goes.`); draw(); return;
+    }
+    from = passFrom;
+  }
+  if (hit && hit.id === from) { toast(`${nameOf(from)} has the ball. Tap a teammate, or open space to throw or shoot.`); return; }
+  pushUndo();
+  const g = goalNear(w);
+  const e = { id: uid(), t: +t.toFixed(2), from, to: hit ? { id: hit.id } : { pt: g ? { x: g.x, y: g.y } : clampW(w) } };
+  play.passes.push(e); play.passes.sort((a, b2) => a.t - b2.t);
+  passFrom = null; selPass = e.id; changed();
+  const k = analyze().find(a => a.e.id === e.id);
+  toast(`Added ${k ? k.kind : 'pass'} at ${e.t.toFixed(2)}s. Press Play to watch it.`);
+}
+
+/* ---------- timeline ---------- */
+function renderTimeline() {
+  const an = analyze(); dur = duration(an); if (t > dur) t = dur;
+  const ticks = $('#ticks'); ticks.innerHTML = '';
+  for (let k = 0; k <= Math.floor(dur); k++) {
+    const d = document.createElement('div'); d.className = 'tick'; d.style.left = (k / dur * 100) + '%';
+    d.innerHTML = `<span>${k}s</span>`; ticks.appendChild(d);
+  }
+  const marks = $('#marks'); marks.innerHTML = '';
+  an.forEach((a, i) => {
+    const b = document.createElement('button');
+    b.className = `mk ${a.kind}${a.valid ? '' : ' bad'}${a.e.id === selPass ? ' sel' : ''}`;
+    b.style.left = (a.e.t / dur * 100) + '%'; b.textContent = i + 1;
+    b.title = `${i + 1}. ${nameOf(a.e.from)} ${a.kind} at ${a.e.t.toFixed(2)}s`;
+    b.addEventListener('pointerdown', ev => ev.stopPropagation());
+    b.addEventListener('click', () => { pausePlayback(); selPass = a.e.id; setT(a.e.t); renderPanel(); renderTimeline(); });
+    marks.appendChild(b);
+  });
+  updateHead();
+}
+function updateHead() {
+  $('#head').style.left = (t / dur * 100) + '%';
+  $('#tlabel').textContent = `${t.toFixed(2)}s / ${dur.toFixed(1)}s`;
+  $('#track').setAttribute('aria-valuenow', t.toFixed(2));
+}
+function setT(v) { t = clamp(v, 0, dur); updateHead(); draw(); }
+const track = $('#track');
+function scrubFrom(ev) { const r = $('#marks').getBoundingClientRect(); setT((ev.clientX - r.left) / r.width * dur); }
+track.addEventListener('pointerdown', ev => { pausePlayback(); try { track.setPointerCapture(ev.pointerId); } catch (e) {} track._s = true; scrubFrom(ev); });
+track.addEventListener('pointermove', ev => { if (track._s) scrubFrom(ev); });
+track.addEventListener('pointerup', () => { track._s = false; });
+track.addEventListener('pointercancel', () => { track._s = false; });
+track.addEventListener('keydown', ev => {
+  if (ev.key === 'ArrowLeft') { ev.preventDefault(); setT(t - .1); }
+  if (ev.key === 'ArrowRight') { ev.preventDefault(); setT(t + .1); }
+});
+
+let raf = 0, lastTs = 0;
+function startPlayback() {
+  if (t >= dur - .01) t = 0;
+  playing = true; lastTs = performance.now(); $('#playBtn').textContent = 'Pause';
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(step);
+}
+function step(ts) {
+  if (!playing) return;
+  t += (ts - lastTs) / 1000 * rate; lastTs = ts;
+  if (t >= dur) { t = dur; pausePlayback(); }
+  updateHead(); draw();
+  if (playing) raf = requestAnimationFrame(step);
+}
+function pausePlayback() { playing = false; cancelAnimationFrame(raf); $('#playBtn').textContent = 'Play'; }
+$('#playBtn').addEventListener('click', () => playing ? pausePlayback() : startPlayback());
+$('#rewBtn').addEventListener('click', () => { pausePlayback(); setT(0); });
+$('#rate').addEventListener('change', e => { rate = +e.target.value || 1; });
+
+/* ---------- panel ---------- */
+function renderPanel() {
+  const p = selected && getP(selected), an = analyze();
+  let h = '';
+  if (p) {
+    const L = pathLen(p);
+    h += `<section class="card">
+      <h3><span class="chip ${p.team}">${p.team === 'O' ? 'Offense' : 'Defense'}</span>Player</h3>
+      <label class="f">Label (number or name)<input id="f-label" maxlength="6" value="${esc(p.label)}"></label>
+      <div class="row2">
+        <label class="f">Waits before moving (s)<input id="f-delay" type="number" step="0.1" min="0" value="${p.delay}"></label>
+        <label class="f">Speed (m/s)<input id="f-speed" type="number" step="0.5" min="1" max="60" value="${p.speed}"></label>
+      </div>
+      <p class="meta">${p.path.length ? `Route is ${L.toFixed(1)} m. Starts at ${p.delay.toFixed(1)}s, arrives at ${endTime(p).toFixed(2)}s.` : 'No route yet. Pick the Route tool and drag from this player.'}</p>
+      ${p.path.length ? (livePauses(p).length ? `<div class="pz"><div class="pzh">Pauses on route</div>${livePauses(p).map((z, j) => `
+        <div class="pzr" data-i="${z.i}">
+          <span>Stops at ${arriveAt(p, z.i).toFixed(2)}s for</span>
+          <input type="number" step="0.1" min="0.1" max="30" value="${z.d}" aria-label="Pause ${j + 1} length in seconds">
+          <span>s</span>
+          <button class="x" aria-label="Remove pause ${j + 1}">×</button>
+        </div>`).join('')}</div>` : '<p class="meta">To pause partway, pick the Route tool and tap on the route where the player should stop.</p>') : ''}
+      <div class="btns">
+        <button class="btn" id="f-ball" ${play.ballStart === p.id ? 'disabled' : ''}>${play.ballStart === p.id ? 'Starts with the ball' : 'Give ball at start'}</button>
+        <button class="btn" id="f-pop" ${p.path.length ? '' : 'disabled'}>Remove last point</button>
+        <button class="btn danger" id="f-clear" ${p.path.length ? '' : 'disabled'}>Clear route</button>
+      </div>
+    </section>`;
+  } else {
+    h += `<section class="card"><h3>Player</h3><p class="meta">Tap a player on the field to set their label, when they start moving, and how fast they go.</p></section>`;
+  }
+  h += `<section class="card"><h3>Passes <span class="count">${an.length}</span></h3>`;
+  if (!an.length) h += `<p class="meta">Pick the Pass tool, move the timeline to the moment of the pass, then tap the receiver. Tap open space or a goal to throw or shoot.</p>`;
+  else h += '<ol class="plist">' + an.map((a, i) => `
+    <li class="${a.e.id === selPass ? 'sel' : ''} ${a.valid ? '' : 'bad'}" data-id="${a.e.id}">
+      <span class="n">${i + 1}</span>
+      <div class="pmain"><div>${esc(nameOf(a.e.from))} → ${a.recv ? esc(nameOf(a.recv.id)) : (a.kind === 'shot' ? 'Goal' : 'Open space')}<span class="kind ${a.kind}">${a.kind}</span></div>
+        ${a.valid ? '' : `<div class="why">${esc(a.reason)}</div>`}</div>
+      <input type="number" class="pt" step="0.05" min="0" value="${a.e.t}" aria-label="Time of pass ${i + 1} in seconds">
+      <button class="x" aria-label="Delete pass ${i + 1}">×</button>
+    </li>`).join('') + '</ol>';
+  h += '</section>';
+  const dyn = $('#dyn'); dyn.innerHTML = h;
+
+  if (p) {
+    $('#f-label').addEventListener('input', e => { p.label = e.target.value.trim() || '?'; save(); draw(); });
+    $('#f-label').addEventListener('change', () => { renderTimeline(); renderPanel(); });
+    $('#f-delay').addEventListener('change', e => { pushUndo(); p.delay = Math.max(0, +e.target.value || 0); changed(); });
+    $('#f-speed').addEventListener('change', e => { pushUndo(); p.speed = clamp(+e.target.value || 12, 1, 60); changed(); });
+    $('#f-ball').addEventListener('click', () => { pushUndo(); play.ballStart = p.id; changed(); });
+    $('#f-pop').addEventListener('click', () => { pushUndo(); p.path = p.path.slice(0, Math.max(0, p.path.length - 12)); p.pauses = (p.pauses || []).filter(z => z.i < p.path.length - 1); changed(); });
+    $('#f-clear').addEventListener('click', () => { pushUndo(); p.path = []; p.pauses = []; changed(); });
+    document.querySelectorAll('.pzr').forEach(row => {
+      const z = p.pauses.find(q => q.i === +row.dataset.i);
+      row.querySelector('input').addEventListener('change', ev => { pushUndo(); z.d = +clamp(+ev.target.value || 1, 0.1, 30).toFixed(2); changed(); });
+      row.querySelector('.x').addEventListener('click', () => { pushUndo(); p.pauses = p.pauses.filter(q => q !== z); changed(); });
+    });
+  }
+  dyn.querySelectorAll('.plist li').forEach(li => {
+    const e = play.passes.find(q => q.id === li.dataset.id);
+    li.addEventListener('click', () => { pausePlayback(); selPass = e.id; setT(e.t); renderPanel(); renderTimeline(); });
+    const inp = li.querySelector('.pt');
+    inp.addEventListener('click', ev => ev.stopPropagation());
+    inp.addEventListener('change', ev => { pushUndo(); e.t = Math.max(0, +(+ev.target.value || 0).toFixed(2)); play.passes.sort((a, b) => a.t - b.t); changed(); });
+    li.querySelector('.x').addEventListener('click', ev => { ev.stopPropagation(); pushUndo(); play.passes = play.passes.filter(q => q.id !== e.id); if (selPass === e.id) selPass = null; changed(); });
+  });
+}
+function changed() { save(); renderPanel(); renderTimeline(); draw(); }
+
+$('#notes').addEventListener('input', e => { play.notes = e.target.value; save(); });
+$('#ballSpeed').addEventListener('change', e => { pushUndo(); play.ballSpeed = clamp(+e.target.value || 30, 5, 120); e.target.value = play.ballSpeed; changed(); });
+$('#moveRoute').addEventListener('change', e => { moveRoute = e.target.checked; try { localStorage.setItem('driftPlaybook.moveRoute', moveRoute ? '1' : '0'); } catch (er) {} });
+$('#showLines').addEventListener('change', e => { showLines = e.target.checked; draw(); });
+$('#arenaOpacity').addEventListener('input', e => { arenaOpacity = +e.target.value; draw(); });
+
+/* ---------- overlay image ---------- */
+function setArena(src, store) {
+  const im = new Image();
+  im.onload = () => {
+    let out = src;
+    if (store) {
+      const max = 1600, k = Math.min(1, max / Math.max(im.width, im.height));
+      const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      try { out = c.toDataURL('image/jpeg', .85); } catch (e) {}
+      try { localStorage.setItem(AKEY, out); } catch (e) { toast('The image is showing, but it is too large to remember after a reload.'); }
+    }
+    arenaImg = im; $('#arenaClear').disabled = false; draw();
+  };
+  im.src = src;
+}
+try { const a = localStorage.getItem(AKEY); if (a) setArena(a, false); } catch (e) {}
+$('#arenaFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => setArena(r.result, true); r.readAsDataURL(f);
+});
+$('#arenaClear').addEventListener('click', () => { arenaImg = null; $('#arenaClear').disabled = true; $('#arenaFile').value = ''; try { localStorage.removeItem(AKEY); } catch (e) {} draw(); });
+
+/* ---------- playbook ---------- */
+function ago(ts) {
+  if (!ts) return '';
+  const s = (Date.now() - ts) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function renderPlaybook() {
+  const sel = $('#playSel');
+  sel.innerHTML = book.plays.map(p => `<option value="${p.id}" ${p.id === play.id ? 'selected' : ''}>${esc(p.name || 'Untitled play')}</option>`).join('');
+  const n = book.plays.length, i = book.plays.findIndex(p => p.id === play.id);
+  $('#pbCount').textContent = `${i + 1} / ${n}`;
+  $('#prevPlay').disabled = $('#nextPlay').disabled = n < 2;
+  $('#pbN').textContent = n;
+  $('#pbList').innerHTML = book.plays.map(p => {
+    const np = (p.passes || []).length, when = ago(p.updatedAt);
+    return `<li><button data-id="${p.id}" aria-current="${p.id === play.id}"><span class="nm">${esc(p.name || 'Untitled play')}</span><span class="sub">${np} pass${np === 1 ? '' : 'es'}${when ? ' · ' + when : ''}</span></button></li>`;
+  }).join('');
+  $('#pbList').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { if (b.dataset.id !== play.id) switchPlay(b.dataset.id); }));
+  $('#pbNote').textContent = !dbMode ? 'Plays save in this browser only.'
+    : readOnly ? 'You can open and play back every play here. Ask the owner for edit access to save changes.'
+    : 'Plays save to this page automatically. Anyone you share the page with can open them.';
+}
+function stepPlay(d) {
+  const n = book.plays.length; if (n < 2) return;
+  const i = book.plays.findIndex(p => p.id === play.id);
+  switchPlay(book.plays[(i + d + n) % n].id);
+}
+$('#prevPlay').addEventListener('click', () => stepPlay(-1));
+$('#nextPlay').addEventListener('click', () => stepPlay(1));
+$('#pbImportBtn').addEventListener('click', () => {
+  const now = Date.now(), draft = lastSynced[play.id] === undefined && !pend.has(play.id) ? play.id : null;
+  const ids = localOnly.map((p, i) => { const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.createdAt = now + i; delete c.updatedAt; book.plays.push(c); queueRemote(c.id); return c.id; });
+  const n = localOnly.length; localOnly = [];
+  try { localStorage.setItem(KEY + '.imported', '1'); } catch (e) {}
+  if (draft) { book.plays = book.plays.filter(p => p.id !== draft); switchPlay(ids[0]); }
+  renderImport(); renderPlaybook(); toast(`Copying ${n} play${n === 1 ? '' : 's'} to the page.`);
+});
+$('#pbImportHide').addEventListener('click', () => { localOnly = []; try { localStorage.setItem(KEY + '.imported', '1'); } catch (e) {} renderImport(); });
+function loadPlayUI() {
+  $('#playName').value = play.name || '';
+  $('#notes').value = play.notes || '';
+  $('#ballSpeed').value = play.ballSpeed || 30;
+  renderPlaybook();
+}
+function switchPlay(id) {
+  pausePlayback();
+  play = book.plays.find(p => p.id === id) || book.plays[0];
+  undo = []; selected = null; selPass = null; passFrom = null; t = 0;
+  loadPlayUI(); changed();
+}
+$('#playSel').addEventListener('change', e => switchPlay(e.target.value));
+$('#playName').addEventListener('input', e => { play.name = e.target.value; save(); renderPlaybook(); });
+$('#newBtn').addEventListener('click', () => {
+  const p = newPlay(`Play ${book.plays.length + 1}`); book.plays.push(p); switchPlay(p.id);
+  $('#playName').focus(); $('#playName').select();
+});
+$('#dupBtn').addEventListener('click', () => {
+  const p = JSON.parse(JSON.stringify(play)); p.id = uid(); p.name = (play.name || 'Play') + ' (copy)'; p.createdAt = Date.now(); delete p.updatedAt;
+  book.plays.push(p); switchPlay(p.id); toast('Duplicated. Tweak this copy to try a variation.');
+});
+let delArm = 0;
+$('#delBtn').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (!delArm) { b.textContent = 'Click again to delete'; b.classList.add('danger'); delArm = setTimeout(() => { delArm = 0; b.textContent = 'Delete'; b.classList.remove('danger'); }, 3000); return; }
+  clearTimeout(delArm); delArm = 0; b.textContent = 'Delete'; b.classList.remove('danger');
+  const name = play.name, gone = play.id;
+  book.plays = book.plays.filter(p => p.id !== gone);
+  pend.delete(gone);
+  if (dbMode && !readOnly && lastSynced[gone] !== undefined) {
+    db.collection('plays').doc(gone).delete().catch(() => toast('That play could not be deleted from the page. Try again.'));
+  }
+  delete lastSynced[gone];
+  if (!book.plays.length) book.plays.push(newPlay('Play 1'));
+  switchPlay(book.plays[0].id); toast(`Deleted “${name}”.`);
+});
+
+/* ---------- share ---------- */
+function exportCode() { const { id, ...rest } = play; return JSON.stringify(rest); }
+$('#shareBtn').addEventListener('click', () => { $('#exportCode').value = exportCode(); $('#importMsg').textContent = ''; $('#share').hidden = false; $('#copyBtn').focus(); });
+$('#closeShare').addEventListener('click', () => { $('#share').hidden = true; });
+$('#share').addEventListener('click', e => { if (e.target.id === 'share') $('#share').hidden = true; });
+$('#copyBtn').addEventListener('click', () => {
+  const ta = $('#exportCode');
+  const fallback = () => { ta.focus(); ta.select(); toast('Code selected. Press Ctrl+C to copy.'); };
+  try { navigator.clipboard.writeText(ta.value).then(() => toast('Play code copied.'), fallback); } catch (e) { fallback(); }
+});
+$('#importBtn').addEventListener('click', () => {
+  const msg = $('#importMsg');
+  try {
+    const d = JSON.parse($('#importCode').value.trim());
+    if (!d || !Array.isArray(d.players) || !d.players.length) throw new Error('no players');
+    const p = newPlay(String(d.name || 'Imported play').slice(0, 60));
+    p.players = d.players.map(q => ({ id: String(q.id), team: q.team === 'D' ? 'D' : 'O', label: String(q.label ?? '?').slice(0, 6),
+      x: +q.x || 0, y: +q.y || 0, delay: Math.max(0, +q.delay || 0), speed: clamp(+q.speed || 12, 1, 60),
+      path: Array.isArray(q.path) ? q.path.map(pt => ({ x: +pt.x || 0, y: +pt.y || 0 })) : [],
+      pauses: Array.isArray(q.pauses) ? q.pauses.map(z => ({ i: Math.max(0, Math.floor(+z.i || 0)), d: clamp(+z.d || 1, 0.1, 30) })) : [] }));
+    const ids = new Set(p.players.map(q => q.id));
+    p.passes = (Array.isArray(d.passes) ? d.passes : []).filter(e => ids.has(e.from) && e.to && (ids.has(e.to.id) || e.to.pt))
+      .map(e => ({ id: uid(), t: Math.max(0, +e.t || 0), from: e.from, to: e.to.id ? { id: e.to.id } : { pt: { x: +e.to.pt.x || 0, y: +e.to.pt.y || 0 } } }));
+    p.ballStart = ids.has(d.ballStart) ? d.ballStart : p.players[0].id;
+    p.ballSpeed = clamp(+d.ballSpeed || 30, 5, 120); p.notes = String(d.notes || '');
+    book.plays.push(p); switchPlay(p.id);
+    $('#importCode').value = ''; $('#share').hidden = true; toast(`Imported “${p.name}”.`);
+  } catch (e) { msg.textContent = 'That code could not be read. Paste the whole code exactly as it was copied.'; }
+});
+
+/* ---------- tools & keys ---------- */
+const HINTS = {
+  move: '<b>Move:</b> drag players to set where they start. Tap a player to edit them on the right.',
+  route: '<b>Route:</b> drag from a player to draw their run. Drag from the arrow tip to extend it, or tap open space to add a straight leg. Tap on a route to add a pause there.',
+  pass: '<b>Pass:</b> move the timeline to the moment of the pass, then tap the receiver. Tap open space or a goal to throw or shoot.',
+};
+const HINT3D = '<b>3D view:</b> drag to orbit, scroll or pinch to zoom, right-drag to pan. Press Play to watch the play. Pick Move, Route or Pass to go back to the 2D editor.';
+function setTool(name) {
+  tool = name; passFrom = null;
+  if (view3d) { setView3d(false); }
+  document.querySelectorAll('.tool[data-tool]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === name));
+  $('#hint').innerHTML = HINTS[name];
+  cv.style.cursor = name === 'move' ? 'grab' : 'crosshair';
+  draw();
+}
+document.querySelectorAll('.tool[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+$('#view3dBtn').addEventListener('click', () => setView3d(!view3d));
+$('#undoBtn').addEventListener('click', doUndo);
+document.addEventListener('keydown', ev => {
+  if (ev.target.closest && ev.target.closest('input,textarea,select')) return;
+  if (!$('#share').hidden) { if (ev.key === 'Escape') $('#share').hidden = true; return; }
+  const k = ev.key;
+  if ((ev.ctrlKey || ev.metaKey) && k.toLowerCase() === 'z') { ev.preventDefault(); doUndo(); return; }
+  if (k === ' ' && ev.target.tagName !== 'BUTTON') { ev.preventDefault(); playing ? pausePlayback() : startPlayback(); }
+  else if (k === '1') setTool('move');
+  else if (k === '2') setTool('route');
+  else if (k === '3') setTool('pass');
+  else if (k === '4') setView3d(!view3d);
+  else if (k === '[') stepPlay(-1);
+  else if (k === ']') stepPlay(1);
+  else if (k === 'Escape') { passFrom = null; selected = null; selPass = null; renderPanel(); renderTimeline(); draw(); }
+  else if ((k === 'Delete' || k === 'Backspace') && selPass) {
+    pushUndo(); play.passes = play.passes.filter(q => q.id !== selPass); selPass = null; changed();
+  }
+  else if (k === 'ArrowLeft' && ev.target === document.body) setT(t - .1);
+  else if (k === 'ArrowRight' && ev.target === document.body) setT(t + .1);
+});
+
+let toastT = 0;
+function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2800); }
+
+/* ---------- boot ---------- */
+readColors();
+try { moveRoute = localStorage.getItem('driftPlaybook.moveRoute') === '1'; } catch (e) {}
+$('#moveRoute').checked = moveRoute;
+if (!window.THREE) { $('#view3dBtn').disabled = true; $('#view3dBtn').title = '3D view needs three.js, which did not load'; }
+loadPlayUI();
+setTool('move');
+renderPanel(); renderTimeline();
+resize();
+new ResizeObserver(resize).observe($('#wrap'));
+window.addEventListener('resize', resize);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+save();
+connectDb();
+})();
+</script>
